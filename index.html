@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+   <script src="https://cdn.jsdelivr.net/npm/p5@1.11.1/lib/p5.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.11.1/lib/addons/p5.sound.min.js"></script>
+</head>
+<body>
+
+  <!-- Start screen -->
+  <div class="start" onclick="this.classList.add('hidden')">Click to start audio</div>
+
+<div class="labels">
+  <label style="top: 10px;">Dampen/Smoothing <span id="value_dampen"></span></label>
+  <label style="top: 35px;">Height <span id="value_height"></span></label>
+  <label style="top: 60px;">Width multiplier <span id="value_width"></span></label>
+  <label style="top: 85px;">Copies <span id="value_copies"></span></label>
+  <label style="top: 110px;">Frequency cutoff <span id="value_cutoff"></span></label>
+  <label style="top: 135px;">Center width <span id="value_center"></span></label>
+</div>
+
+
+
+<style>
+
+  html, body {
+  margin: 0;
+  padding: 0;
+  background: #000;
+  -webkit-appearance: none;
+}
+
+
+/* Start screen style */
+.start {
+position: fixed;
+inset: 0;
+z-index: 10;
+display: flex;
+align-items: center;
+justify-content: center;
+background-color: #000;
+color: #fff;
+font-family: Arial, Helvetica, sans-serif;
+font-size: 16px;
+transition: opacity 0.5s;
+}
+
+/* Not interactive when hidden */
+.start.hidden {
+opacity: 0;
+pointer-events: none;
+}
+
+canvas {
+position: fixed;
+top: 0;
+left: 0;
+z-index: 0;
+}
+
+
+/* Input styling */
+
+input[type=range] {
+  -webkit-appearance: none;
+  height: 10px;
+  margin-bottom: 15px;
+  background: #575757;
+  cursor: pointer;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 2px;
+  height: 14px;
+
+  border-radius: 25%;
+  background: #fff;
+  border: none;
+}
+
+.labels label {
+  position: absolute;
+  left: 150px;
+  z-index: 1;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  line-height: 14px;
+  pointer-events: none;
+
+}
+
+.labels span {
+  color: #aaa;
+}
+
+.type_d, .sound_d {
+
+  -webkit-appearance: none;
+  appearance: none;
+  height: 20px;
+  padding: 0 18px 0 4px;         
+  margin-bottom: 15px;
+  border: none;
+  border-radius: 0;
+  background-color: #575757;
+  color: #fff;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  cursor: pointer;
+  outline: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%23fff'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 5px center;
+}
+
+</style>
+
+  <script>
+
+
+let fft;
+let sound;
+let copy_value = [4, 8, 16, 32];
+let nature;
+let waves;
+
+
+function preload() {
+  nature = loadSound('/nature.mp3');
+  waves = loadSound('/Waves.mp3');
+  fft = new p5.FFT(0.9, 128);
+}
+
+function setup() {
+  createCanvas(windowWidth, windowHeight, WEBGL);
+
+//sound dropdown
+  sound_dropdown = createSelect();
+  sound_dropdown.position(10, 160);
+  sound_dropdown.option('nature');
+  sound_dropdown.option('waves');
+  sound_dropdown.selected('nature');
+  sound_dropdown.changed(changeSound);
+  sound_dropdown.addClass("sound_d");
+  sound = nature;
+
+//type dropdown
+  type_dropdown = createSelect();
+  type_dropdown.position(10, 190);
+  type_dropdown.option('points');
+  type_dropdown.option('lines');
+  type_dropdown.selected('points');
+  type_dropdown.addClass("type_d");
+
+//dampen slider
+  dampen_slider = createSlider(0, 0.99, 0.8, 0.01);
+  dampen_slider.position(10, 10);
+  dampen_slider.addClass("dampen");
+
+//max height slider
+  height_slider = createSlider(0, 500, 200, 1);
+  height_slider.position(10, 35);
+
+//width slider
+  width_slider = createSlider(0, 5, 0.5, 0.01);
+  width_slider.position(10, 60);
+
+//number of copies slider
+  copies_slider = createSlider(0, copy_value.length - 1, 4, 1);
+  copies_slider.position(10, 85);
+
+//high freq cutoff slider
+  cutoff_slider = createSlider(40, 120, 40, 1);
+  cutoff_slider.position(10, 110);
+
+//center width slider
+  c_slider = createSlider(0, 120, 20, 1);
+  c_slider.position(10, 135);
+
+}
+
+function Values() {
+  //values for labels
+  document.getElementById('value_dampen').textContent = dampen_slider.value();
+  document.getElementById('value_height').textContent = height_slider.value();
+  document.getElementById('value_width').textContent = width_slider.value();
+  document.getElementById('value_copies').textContent = copy_value[copies_slider.value()];
+  document.getElementById('value_cutoff').textContent = cutoff_slider.value();
+  document.getElementById('value_center').textContent = c_slider.value();
+}
+
+
+function mousePressed() {
+  userStartAudio();
+  if (!sound.isPlaying()) {
+    sound.loop();
+  }
+}
+
+
+function changeSound() {
+  //change sound with dropdown
+  sound.stop();
+  if (sound_dropdown.value() === 'nature') {
+    sound = nature;
+  } else {
+    sound = waves;
+  }
+  sound.amp(0.5);
+  sound.loop();
+  
+}
+
+
+
+function draw() {
+    Values();
+    background(10);
+    stroke(255);
+
+    //Y-axis control
+    orbitControl(0, 1, 0);
+    rotateX(45*PI/180);
+
+    let spectrum = fft.analyze();
+
+    // Number of copies in steps (Array: 4, 8, 16, 32)
+    let steps = copies_slider.value();
+    let copies = copy_value[steps];
+
+    //Make spectrum non perpendicular to camera
+    rotateZ(180/copies*PI/180);
+    fft.smooth(dampen_slider.value())
+
+
+//nested for-loop
+  for (let j = 0; j < copies; j++) {
+
+//rotate and duplicate spectrum
+  rotateZ((j / copies) * TWO_PI);
+  
+//if else condition spectrum type
+   if (type_dropdown.value() === 'lines') {
+    strokeWeight(0.8);
+    noFill();
+
+//lines
+    beginShape();
+    for (let i = 0; i < spectrum.length-cutoff_slider.value(); i++) {
+
+      //sliders control width, height, center placement
+      let x = i*windowWidth/spectrum.length/2 * width_slider.value() + c_slider.value();
+      let y = 0;
+      let z = map(spectrum[i], 0, 255,  -(height_slider.value()/3), height_slider.value());
+      vertex(x, y, z);
+    }
+    endShape();
+  }
+
+  if (type_dropdown.value() === 'points') {
+  //variable weight
+    strokeWeight(1+0.3*width_slider.value());
+
+  //points
+    beginShape(POINTS);
+    for (let i = 0; i < spectrum.length-cutoff_slider.value();  i++) {
+      let x = i*windowWidth/spectrum.length/2 * width_slider.value() + c_slider.value();
+      let y = 0;
+      let z = map(spectrum[i], 0, 255, -(height_slider.value()/3), height_slider.value());
+      vertex(x, y, z);
+    }
+    endShape();
+  }
+}
+}
+
+//resize window
+function windowResized() {
+  resizeCanvas(windowWidth, windowHeight);
+}
+
+
+  </script>
+</body>
+</html>
